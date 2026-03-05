@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PakuaCV - AI CV Builder</title>
+    <script>
+      // Prevent "TypeError: Cannot set property fetch/WebSocket of #<Window> which has only a getter"
+      // This happens when libraries (like Firebase or polyfills) try to overwrite read-only window properties
+      (function() {
+        function protectProperty(propName) {
+          try {
+            var descriptor = Object.getOwnPropertyDescriptor(window, propName) || 
+                             Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window), propName);
+            
+            if (descriptor && !descriptor.set && descriptor.configurable) {
+              var originalValue = window[propName];
+              Object.defineProperty(window, propName, {
+                get: function() { return originalValue; },
+                set: function(v) { 
+                  console.warn('A library tried to overwrite window.' + propName + '. This was prevented to avoid a TypeError.');
+                  originalValue = v; 
+                },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch (e) {
+            console.warn(propName + ' protection script encountered an error:', e);
+          }
+        }
+        
+        protectProperty('fetch');
+        protectProperty('WebSocket');
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
