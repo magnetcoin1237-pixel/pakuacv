@@ -19,3 +19,15 @@
 .markdown-body ul { @apply list-disc pl-6 mb-4; }
 .markdown-body li { @apply mb-2; }
 
+/* PDF Export Utilities */
+.pdf-section {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pdf-page-break {
+  page-break-before: always;
+  break-before: page;
+}
+
+

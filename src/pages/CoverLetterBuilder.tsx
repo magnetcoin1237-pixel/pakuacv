@@ -1,19 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Download, RefreshCw, AlertCircle, FileText, User, Mail, Phone, MapPin, Building2, Briefcase, CheckCircle2, Eye, X } from 'lucide-react';
 import { generateCoverLetter, analyzeDocument } from '../services/geminiService';
 import { CoverLetterData, CVData, Language } from '../types';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { toJpeg } from 'html-to-image';
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
+import { convertOklchToRgb, resolveOklchInString } from '../utils/colorConverter';
 import { extractTextFromPDF, extractTextFromWord, fileToBase64 } from '../utils/fileParser';
+import { optimizeImage } from '../utils/imageOptimizer';
 import { Upload, FileUp, Save } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 
 export default function CoverLetterBuilder() {
+  const location = useLocation();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isEditingResult, setIsEditingResult] = useState(false);
   const [language, setLanguage] = useState<Language>('English');
@@ -55,10 +62,45 @@ export default function CoverLetterBuilder() {
     };
     fetchProfile();
 
-    const savedData = localStorage.getItem('pakuacv_data');
-    if (savedData) {
+    // Check for saved Cover Letter data (from Dashboard "Open" via navigation state or localStorage)
+    const loadedData = location.state?.loadedData;
+    const savedCL = loadedData ? JSON.stringify(loadedData) : localStorage.getItem('pakuacl_data');
+    
+    console.log("Checking for Cover Letter data...", loadedData ? "Found in state" : (savedCL ? "Found in localStorage" : "Not found"));
+    
+    if (loadedData || savedCL) {
       try {
-        const cv: CVData = JSON.parse(savedData);
+        const parsed = loadedData || JSON.parse(savedCL!);
+        console.log("Parsed Cover Letter data:", parsed);
+        if (parsed.content || parsed.subject) {
+          console.log("Loading Cover Letter data into state");
+          setClData(parsed);
+          setFormData({
+            personalDetails: {
+              fullName: parsed.fullName || '',
+              email: parsed.email || '',
+              phone: parsed.phone || '',
+              location: parsed.location || ''
+            },
+            jobDescription: '', // We don't necessarily have the original JD
+            companyDetails: {
+              name: parsed.companyName || '',
+              address: parsed.companyAddress || '',
+              recipient: parsed.recipientName || ''
+            }
+          });
+          setActiveTab('preview');
+        }
+      } catch (e) {
+        console.error("Failed to load Cover Letter data", e);
+      }
+    }
+
+    // Also check for CV data to pre-fill if no CL data was loaded
+    const savedCV = localStorage.getItem('pakuacv_data');
+    if (savedCV && !savedCL) {
+      try {
+        const cv: CVData = JSON.parse(savedCV);
         setFormData(prev => ({
           ...prev,
           personalDetails: {
@@ -82,7 +124,7 @@ export default function CoverLetterBuilder() {
         console.error('Failed to parse saved CV data', e);
       }
     }
-  }, []);
+  }, [location.state]);
 
   const handleSaveToDashboard = async () => {
     if (!clData || !auth.currentUser) return;
@@ -170,11 +212,12 @@ export default function CoverLetterBuilder() {
       const fileName = file.name.toLowerCase();
 
       if (mimeType.startsWith('image/')) {
-        const base64 = await fileToBase64(file);
-        extractedData = await analyzeDocument(base64, mimeType, 'cover_letter');
+        const optimizedBase64 = await optimizeImage(file);
+        extractedData = await analyzeDocument(optimizedBase64, 'image/jpeg', 'cover_letter');
       } else if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
-        const text = await extractTextFromPDF(file);
-        extractedData = await analyzeDocument(text, 'text/plain', 'cover_letter');
+        // Direct PDF processing is often faster and more accurate with Gemini
+        const base64 = await fileToBase64(file);
+        extractedData = await analyzeDocument(base64, 'application/pdf', 'cover_letter');
       } else if (
         mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
         mimeType === 'application/msword' ||
@@ -220,22 +263,57 @@ export default function CoverLetterBuilder() {
   };
 
   const downloadPDF = async () => {
-    if (!clRef.current) return;
+    if (!clRef.current) {
+      setError('Could not find Cover Letter content to download.');
+      return;
+    }
     
-    const canvas = await html2canvas(clRef.current, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-    });
+    setIsDownloading(true);
+    setError(null);
     
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`${clData?.fullName.replace(/\s+/g, '_')}_CoverLetter.pdf`);
+    try {
+      // Ensure we are at the top of the page for better capture
+      window.scrollTo(0, 0);
+      
+      // Small delay to ensure any layout shifts or animations are settled
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const element = clRef.current;
+      if (!element) return;
+      
+      // Use html-to-image to get a high-quality JPEG
+      const dataUrl = await toJpeg(element, { 
+        quality: 1, 
+        backgroundColor: '#fff',
+        pixelRatio: 2
+      });
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`${(clData?.fullName || 'My').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_CoverLetter.pdf`);
+    } catch (err: any) {
+      console.error('PDF Generation Error:', err);
+      setError(`Failed to generate PDF: ${err.message || 'Please try again.'}`);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
@@ -513,10 +591,13 @@ export default function CoverLetterBuilder() {
                 </button>
                 <button
                   onClick={downloadPDF}
-                  className="flex items-center gap-2 text-sm font-bold text-zinc-900 hover:text-zinc-600 transition-colors"
+                  disabled={isDownloading}
+                  className={`flex items-center gap-2 text-sm font-bold transition-colors ${
+                    isDownloading ? 'text-zinc-400' : 'text-zinc-900 hover:text-zinc-600'
+                  }`}
                 >
-                  <Download size={18} />
-                  Download PDF
+                  {isDownloading ? <RefreshCw size={18} className="animate-spin" /> : <Download size={18} />}
+                  {isDownloading ? 'Generating PDF...' : 'Download PDF'}
                 </button>
               </div>
             )}
@@ -558,12 +639,13 @@ export default function CoverLetterBuilder() {
                   className="bg-white rounded-2xl border border-zinc-200 shadow-2xl overflow-hidden"
                 >
                   <div 
+                    id="cl-preview-content"
                     ref={clRef}
                     className="p-12 aspect-[1/1.414] bg-white text-zinc-900 font-serif leading-relaxed"
                     style={{ fontSize: '13px' }}
                   >
                     {/* Header */}
-                    <div className="mb-8">
+                    <div className="mb-8 pdf-section">
                       {isEditingResult ? (
                         <div className="space-y-2">
                           <input 
@@ -598,7 +680,7 @@ export default function CoverLetterBuilder() {
                       )}
                     </div>
 
-                    <div className="mb-8">
+                    <div className="mb-8 pdf-section">
                       {isEditingResult ? (
                         <input 
                           className="w-full border-b border-zinc-200 outline-none"
@@ -610,7 +692,7 @@ export default function CoverLetterBuilder() {
                       )}
                     </div>
 
-                    <div className="mb-8">
+                    <div className="mb-8 pdf-section">
                       {isEditingResult ? (
                         <div className="space-y-2">
                           <input 
@@ -644,7 +726,7 @@ export default function CoverLetterBuilder() {
                       )}
                     </div>
 
-                    <div className="mb-6">
+                    <div className="mb-6 pdf-section">
                       {isEditingResult ? (
                         <input 
                           className="font-bold underline w-full border-b border-zinc-200 outline-none"

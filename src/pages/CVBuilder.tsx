@@ -1,21 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Download, RefreshCw, CheckCircle2, AlertCircle, FileText, User, Mail, Phone, MapPin, Briefcase, Award, Users, Info, Plus, Trash2, Eye, X } from 'lucide-react';
 import { improveCV, analyzeDocument } from '../services/geminiService';
 import { CVData, Language } from '../types';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { toJpeg } from 'html-to-image';
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
+import { convertOklchToRgb, resolveOklchInString } from '../utils/colorConverter';
 import { extractTextFromPDF, extractTextFromWord, fileToBase64 } from '../utils/fileParser';
+import { optimizeImage } from '../utils/imageOptimizer';
 import { Upload, FileUp, Save } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 
 export default function CVBuilder() {
+  const location = useLocation();
   const [jobType, setJobType] = useState('');
   const [language, setLanguage] = useState<Language>('English');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isEditingResult, setIsEditingResult] = useState(false);
   const [cvData, setCvData] = useState<CVData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +93,44 @@ export default function CVBuilder() {
       }
     };
     fetchProfile();
-  }, []);
+
+    // Load saved CV data if available (from Dashboard "Open" button via navigation state)
+    const loadedData = location.state?.loadedData;
+    const savedCV = loadedData ? JSON.stringify(loadedData) : localStorage.getItem('pakuacv_data');
+    
+    console.log("Checking for CV data...", loadedData ? "Found in state" : (savedCV ? "Found in localStorage" : "Not found"));
+    
+    if (loadedData || savedCV) {
+      try {
+        const parsed = loadedData || JSON.parse(savedCV!);
+        console.log("Parsed CV data:", parsed);
+        // Check if it's a full CV result (has summary or experience)
+        if (parsed.summary || (parsed.experience && parsed.experience.length > 0)) {
+          console.log("Loading CV data into state");
+          setCvData(parsed);
+          setFormData({
+            personalDetails: {
+              fullName: parsed.fullName || '',
+              email: parsed.email || '',
+              phone: parsed.phone || '',
+              location: parsed.location || '',
+              profilePicture: parsed.profilePicture || ''
+            },
+            careerObjective: parsed.summary || '',
+            education: parsed.education || [],
+            experience: parsed.experience || [],
+            skills: Array.isArray(parsed.skills) ? parsed.skills.join(', ') : '',
+            certifications: Array.isArray(parsed.certifications) ? parsed.certifications.join(', ') : '',
+            referees: parsed.referees || []
+          });
+          if (parsed.jobType) setJobType(parsed.jobType);
+          setActiveTab('preview');
+        }
+      } catch (e) {
+        console.error("Failed to load CV data", e);
+      }
+    }
+  }, [location.state]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -242,11 +286,12 @@ export default function CVBuilder() {
       const fileName = file.name.toLowerCase();
 
       if (mimeType.startsWith('image/')) {
-        const base64 = await fileToBase64(file);
-        extractedData = await analyzeDocument(base64, mimeType, 'cv');
+        const optimizedBase64 = await optimizeImage(file);
+        extractedData = await analyzeDocument(optimizedBase64, 'image/jpeg', 'cv');
       } else if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
-        const text = await extractTextFromPDF(file);
-        extractedData = await analyzeDocument(text, 'text/plain', 'cv');
+        // Direct PDF processing is often faster and more accurate with Gemini
+        const base64 = await fileToBase64(file);
+        extractedData = await analyzeDocument(base64, 'application/pdf', 'cv');
       } else if (
         mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
         mimeType === 'application/msword' ||
@@ -286,22 +331,57 @@ export default function CVBuilder() {
   };
 
   const downloadPDF = async () => {
-    if (!cvRef.current) return;
+    if (!cvRef.current) {
+      setError('Could not find CV content to download.');
+      return;
+    }
     
-    const canvas = await html2canvas(cvRef.current, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-    });
+    setIsDownloading(true);
+    setError(null);
     
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`${cvData?.fullName.replace(/\s+/g, '_')}_CV.pdf`);
+    try {
+      // Ensure we are at the top of the page for better capture
+      window.scrollTo(0, 0);
+      
+      // Small delay to ensure any layout shifts or animations are settled
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const element = cvRef.current;
+      if (!element) return;
+
+      // Use html-to-image to get a high-quality JPEG
+      const dataUrl = await toJpeg(element, { 
+        quality: 1, 
+        backgroundColor: '#fff',
+        pixelRatio: 2
+      });
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`${(cvData?.fullName || 'My').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_CV.pdf`);
+    } catch (err: any) {
+      console.error('PDF Generation Error:', err);
+      setError(`Failed to generate PDF: ${err.message || 'Please try again.'}`);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
@@ -785,10 +865,13 @@ export default function CVBuilder() {
                 </button>
                 <button
                   onClick={downloadPDF}
-                  className="flex items-center gap-2 text-sm font-bold text-zinc-900 hover:text-zinc-600 transition-colors"
+                  disabled={isDownloading}
+                  className={`flex items-center gap-2 text-sm font-bold transition-colors ${
+                    isDownloading ? 'text-zinc-400' : 'text-zinc-900 hover:text-zinc-600'
+                  }`}
                 >
-                  <Download size={18} />
-                  Download PDF
+                  {isDownloading ? <RefreshCw size={18} className="animate-spin" /> : <Download size={18} />}
+                  {isDownloading ? 'Generating PDF...' : 'Download PDF'}
                 </button>
               </div>
             )}
@@ -833,6 +916,7 @@ export default function CVBuilder() {
                   className="bg-white rounded-2xl border border-zinc-200 shadow-2xl overflow-hidden"
                 >
                   <div 
+                    id="cv-preview-content"
                     ref={cvRef}
                     className={`p-6 md:p-12 aspect-[1/1.414] bg-white text-zinc-900 font-sans ${
                       selectedTemplate === 'minimal' ? 'bg-zinc-50' : ''
@@ -908,7 +992,7 @@ export default function CVBuilder() {
 
                     <div className="space-y-6 md:space-y-8">
                       {/* Career Objective */}
-                      <section>
+                      <section className="pdf-section">
                         <h2 className={`text-sm font-bold uppercase tracking-widest mb-3 ${
                           selectedTemplate === 'classic' ? 'border-b border-zinc-200 pb-1' : 
                           selectedTemplate === 'modern' ? 'text-zinc-900 bg-zinc-100 px-2 py-1 inline-block mb-4' :
@@ -928,7 +1012,7 @@ export default function CVBuilder() {
                       </section>
 
                       {/* Education */}
-                      <section>
+                      <section className="pdf-section">
                         <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${
                           selectedTemplate === 'classic' ? 'border-b border-zinc-200 pb-1' : 
                           selectedTemplate === 'modern' ? 'text-zinc-900 bg-zinc-100 px-2 py-1 inline-block mb-4' :
@@ -972,7 +1056,7 @@ export default function CVBuilder() {
                       </section>
 
                       {/* Work Experience */}
-                      <section>
+                      <section className="pdf-section">
                         <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${
                           selectedTemplate === 'classic' ? 'border-b border-zinc-200 pb-1' : 
                           selectedTemplate === 'modern' ? 'text-zinc-900 bg-zinc-100 px-2 py-1 inline-block mb-4' :
@@ -1022,7 +1106,7 @@ export default function CVBuilder() {
                       </section>
 
                       {/* Skills */}
-                      <section>
+                      <section className="pdf-section">
                         <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${
                           selectedTemplate === 'classic' ? 'border-b border-zinc-200 pb-1' : 
                           selectedTemplate === 'modern' ? 'text-zinc-900 bg-zinc-100 px-2 py-1 inline-block mb-4' :
@@ -1051,7 +1135,7 @@ export default function CVBuilder() {
 
                       {/* Certifications */}
                       {cvData?.certifications && cvData.certifications.length > 0 && (
-                        <section>
+                        <section className="pdf-section">
                           <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${
                             selectedTemplate === 'classic' ? 'border-b border-zinc-200 pb-1' : 
                             selectedTemplate === 'modern' ? 'text-zinc-900 bg-zinc-100 px-2 py-1 inline-block mb-4' :
@@ -1075,7 +1159,7 @@ export default function CVBuilder() {
 
                       {/* Referees */}
                       {cvData?.referees && cvData.referees.length > 0 && (
-                        <section>
+                        <section className="pdf-section">
                           <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${
                             selectedTemplate === 'classic' ? 'border-b border-zinc-200 pb-1' : 
                             selectedTemplate === 'modern' ? 'text-zinc-900 bg-zinc-100 px-2 py-1 inline-block mb-4' :

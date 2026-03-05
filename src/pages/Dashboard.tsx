@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
@@ -16,6 +16,7 @@ interface SavedDocument {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [documents, setDocuments] = useState<SavedDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -164,9 +165,10 @@ export default function Dashboard() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
-                      // Logic to load document back into builder
-                      localStorage.setItem(doc.type === 'cv' ? 'pakuacv_data' : 'pakuacl_data', JSON.stringify(doc.data));
-                      window.location.href = doc.type === 'cv' ? '/builder' : '/cover-letter';
+                      console.log("Opening document:", doc.id, doc.type);
+                      navigate(doc.type === 'cv' ? '/builder' : '/cover-letter', { 
+                        state: { loadedData: doc.data } 
+                      });
                     }}
                     className="flex-1 flex items-center justify-center gap-2 py-2 bg-zinc-900 text-white text-sm font-bold rounded-lg hover:bg-zinc-800 transition-all"
                   >

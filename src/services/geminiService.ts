@@ -149,10 +149,8 @@ export async function analyzeDocument(
   type: 'cv' | 'cover_letter'
 ): Promise<any> {
   const prompt = type === 'cv' 
-    ? `Extract all relevant professional information from this CV/Resume. 
-       Return a JSON object with: fullName, email, phone, location, summary, education (array of {school, degree, year}), experience (array of {company, role, period, description}), skills (array of strings), certifications (array of strings), and referees (array of {name, position, organization, contact}).`
-    : `Extract all relevant information from this Cover Letter. 
-       Return a JSON object with: fullName, email, phone, location, date, recipientName, recipientTitle, companyName, companyAddress, subject, and content.`;
+    ? `Extract professional info from this CV. JSON: {fullName, email, phone, location, summary, education: [{school, degree, year}], experience: [{company, role, period, description}], skills: [], certifications: [], referees: [{name, position, organization, contact}]}`
+    : `Extract info from this Cover Letter. JSON: {fullName, email, phone, location, date, recipientName, recipientTitle, companyName, companyAddress, subject, content}`;
 
   const parts: any[] = [{ text: prompt }];
 
