@@ -5,7 +5,8 @@ import { Sparkles, Download, RefreshCw, AlertCircle, FileText, User, Mail, Phone
 import { generateCoverLetter, analyzeDocument } from '../services/geminiService';
 import { CoverLetterData, CVData, Language } from '../types';
 import { jsPDF } from 'jspdf';
-import { toJpeg } from 'html-to-image';
+import { toJpeg, toCanvas } from 'html-to-image';
+import { generateSmartPdf } from '../utils/pdfUtils';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 import { convertOklchToRgb, resolveOklchInString } from '../utils/colorConverter';
@@ -281,33 +282,14 @@ export default function CoverLetterBuilder() {
       const element = clRef.current;
       if (!element) return;
       
-      // Use html-to-image to get a high-quality JPEG
-      const dataUrl = await toJpeg(element, { 
-        quality: 1, 
+      // Use html-to-image to get a high-quality canvas
+      const canvas = await toCanvas(element, { 
         backgroundColor: '#fff',
         pixelRatio: 2
       });
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgProps = pdf.getImageProperties(dataUrl);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      
-      let heightLeft = pdfHeight;
-      let position = 0;
-
-      pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(dataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-      }
-
-      pdf.save(`${(clData?.fullName || 'My').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_CoverLetter.pdf`);
+      const filename = `${(clData?.fullName || 'My').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_CoverLetter.pdf`;
+      await generateSmartPdf(canvas, filename);
     } catch (err: any) {
       console.error('PDF Generation Error:', err);
       setError(`Failed to generate PDF: ${err.message || 'Please try again.'}`);

@@ -92,11 +92,19 @@ export async function generateCoverLetter(
   cvBackground?: string,
   language: Language = 'English'
 ): Promise<CoverLetterData> {
+  const today = new Date().toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Generate a professional cover letter based on the following information.
     The cover letter MUST be written in ${language}.
     The cover letter should be persuasive, professional, and tailored to the job description.
+    
+    IMPORTANT: Use today's date: ${today}
     
     Personal Details:
     ${personalInfo}
@@ -121,7 +129,7 @@ export async function generateCoverLetter(
           email: { type: Type.STRING },
           phone: { type: Type.STRING },
           location: { type: Type.STRING },
-          date: { type: Type.STRING, description: "Current date in a professional format" },
+          date: { type: Type.STRING, description: `The date to use, which should be ${today}` },
           recipientName: { type: Type.STRING, description: "Hiring Manager or specific name if provided" },
           recipientTitle: { type: Type.STRING },
           companyName: { type: Type.STRING },
