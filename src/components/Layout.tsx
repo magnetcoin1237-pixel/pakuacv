@@ -1,13 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FileText, FileEdit, BookOpen, Home, Github, Menu, X, LogOut, User as UserIcon, LayoutDashboard, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { isKeyInvalid } from '../services/geminiService';
+import { isKeyInvalid as initialIsKeyInvalid, onKeyStatusChange } from '../services/geminiService';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const [isKeyInvalid, setIsKeyInvalid] = useState(initialIsKeyInvalid);
+
+  useEffect(() => {
+    // Subscribe to key status changes
+    const unsubscribe = onKeyStatusChange((status) => {
+      setIsKeyInvalid(status);
+    });
+    
+    // Initial check
+    setIsKeyInvalid(initialIsKeyInvalid);
+    
+    return unsubscribe;
+  }, []);
 
   const navItems = [
     { name: 'Home', path: '/', icon: Home },

@@ -16,8 +16,6 @@ export default defineConfig(({mode}) => {
                  process.env.PAKUA_AI_KEY ||
                  process.env.API_KEY || '';
   
-  console.log('PakuaCV Build: API Key detected:', apiKey ? 'YES' : 'NO');
-
   return {
     plugins: [react(), tailwindcss()],
     define: {

@@ -9,7 +9,7 @@ const getApiKey = () => {
     // These will be replaced by Vite's define plugin during build
     // We check multiple sources to be absolutely sure
     const v0 = typeof __GEMINI_API_KEY__ !== 'undefined' ? __GEMINI_API_KEY__ : '';
-    const v1 = import.meta.env.VITE_GEMINI_API_KEY;
+    const v1 = (import.meta as any).env?.VITE_GEMINI_API_KEY;
     const v2 = typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : '';
     const v3 = typeof process !== 'undefined' && process.env ? process.env.VITE_GEMINI_API_KEY : '';
     const v4 = typeof process !== 'undefined' && process.env ? process.env.PAKUA_AI_KEY : '';
@@ -36,24 +36,68 @@ const getApiKey = () => {
   }
 };
 
-const apiKey = getApiKey();
+let apiKey = getApiKey();
+export let isKeyInvalid = !apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '';
 
-export const isKeyInvalid = !apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '';
+const listeners: ((status: boolean) => void)[] = [];
+export const onKeyStatusChange = (callback: (status: boolean) => void) => {
+  listeners.push(callback);
+  return () => {
+    const index = listeners.indexOf(callback);
+    if (index > -1) listeners.splice(index, 1);
+  };
+};
+
+const notifyListeners = () => {
+  listeners.forEach(l => l(isKeyInvalid));
+};
+
+// Fallback: Fetch from server at runtime (more reliable for secrets)
+export const fetchApiKeyFromServer = async () => {
+  if (!isKeyInvalid && apiKey) return;
+  
+  try {
+    const response = await fetch('/api/config');
+    if (response.ok) {
+      const data = await response.json();
+      if (data.apiKey && data.apiKey.length > 10) {
+        apiKey = data.apiKey;
+        isKeyInvalid = false;
+        console.log("PakuaCV: API Key successfully fetched from server.");
+        // Re-initialize AI if needed
+        ai = new GoogleGenAI({ apiKey: apiKey });
+        notifyListeners();
+      }
+    }
+  } catch (e) {
+    console.error("PakuaCV: Failed to fetch API key from server:", e);
+  }
+};
+
+// Initial fetch attempt
+fetchApiKeyFromServer();
 
 if (apiKey && !isKeyInvalid) {
   console.log(`Gemini API Key detected: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
 } else {
-  console.warn("Gemini API Key is missing or invalid. Please check your environment variables.");
+  console.warn("Gemini API Key is missing or invalid. Attempting runtime fetch...");
 }
 
 let ai: any = null;
 try {
-  ai = new GoogleGenAI({ apiKey: apiKey || '' });
+  if (apiKey) {
+    ai = new GoogleGenAI({ apiKey: apiKey });
+  }
 } catch (e) {
   console.error("Failed to initialize GoogleGenAI", e);
 }
 
 export async function improveCV(rawInfo: string, jobType: string, language: Language = 'English'): Promise<CVData> {
+  // Ensure we have the key before proceeding
+  if (isKeyInvalid) {
+    await fetchApiKeyFromServer();
+  }
+  
   if (isKeyInvalid || !ai) {
     throw new Error("AI Service not initialized: Please add your GEMINI_API_KEY to environment variables and redeploy.");
   }
