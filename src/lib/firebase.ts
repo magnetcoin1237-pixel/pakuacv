@@ -21,7 +21,4 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Initialize Gemini AI
-export const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 export default app;

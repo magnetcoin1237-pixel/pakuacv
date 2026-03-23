@@ -2,15 +2,26 @@ import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { CVData, CoverLetterData, Language } from "../types";
 
 // @ts-ignore
-const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
 
 export const isKeyInvalid = !apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '';
 
-const ai = new GoogleGenAI({ apiKey: apiKey || '' });
+if (apiKey && !isKeyInvalid) {
+  console.log(`Gemini API Key detected: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
+} else {
+  console.warn("Gemini API Key is missing or invalid. Please check your environment variables.");
+}
+
+let ai: any = null;
+try {
+  ai = new GoogleGenAI({ apiKey: apiKey || '' });
+} catch (e) {
+  console.error("Failed to initialize GoogleGenAI", e);
+}
 
 export async function improveCV(rawInfo: string, jobType: string, language: Language = 'English'): Promise<CVData> {
-  if (isKeyInvalid) {
-    throw new Error("API Key Missing: Please add your GEMINI_API_KEY to environment variables and redeploy.");
+  if (isKeyInvalid || !ai) {
+    throw new Error("AI Service not initialized: Please add your GEMINI_API_KEY to environment variables and redeploy.");
   }
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -100,8 +111,8 @@ export async function generateCoverLetter(
   cvBackground?: string,
   language: Language = 'English'
 ): Promise<CoverLetterData> {
-  if (isKeyInvalid) {
-    throw new Error("API Key Missing: Please add your GEMINI_API_KEY to environment variables and redeploy.");
+  if (isKeyInvalid || !ai) {
+    throw new Error("AI Service not initialized: Please add your GEMINI_API_KEY to environment variables and redeploy.");
   }
   const today = new Date().toLocaleDateString('en-US', { 
     year: 'numeric', 
@@ -167,8 +178,8 @@ export async function analyzeDocument(
   mimeType: string,
   type: 'cv' | 'cover_letter'
 ): Promise<any> {
-  if (isKeyInvalid) {
-    throw new Error("API Key Missing: Please add your GEMINI_API_KEY to environment variables and redeploy.");
+  if (isKeyInvalid || !ai) {
+    throw new Error("AI Service not initialized: Please add your GEMINI_API_KEY to environment variables and redeploy.");
   }
   const prompt = type === 'cv' 
     ? `Extract professional info from this CV. JSON: {fullName, email, phone, location, summary, education: [{school, degree, year}], experience: [{company, role, period, description}], skills: [], certifications: [], referees: [{name, position, organization, contact}]}`

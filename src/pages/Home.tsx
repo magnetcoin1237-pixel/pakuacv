@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowRight, Sparkles, FileText, Zap, CheckCircle2 } from 'lucide-react';
-import { ai } from '../lib/firebase';
 
 export default function Home() {
   return (
