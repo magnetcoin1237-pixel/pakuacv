@@ -1,12 +1,37 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { CVData, CoverLetterData, Language } from "../types";
 
+declare const __GEMINI_API_KEY__: string | undefined;
+
 // @ts-ignore
 const getApiKey = () => {
   try {
-    // @ts-ignore
-    return import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : '');
+    // These will be replaced by Vite's define plugin during build
+    // We check multiple sources to be absolutely sure
+    const v0 = typeof __GEMINI_API_KEY__ !== 'undefined' ? __GEMINI_API_KEY__ : '';
+    const v1 = import.meta.env.VITE_GEMINI_API_KEY;
+    const v2 = typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : '';
+    const v3 = typeof process !== 'undefined' && process.env ? process.env.VITE_GEMINI_API_KEY : '';
+    const v4 = typeof process !== 'undefined' && process.env ? process.env.PAKUA_AI_KEY : '';
+    
+    const key = (v0 || v1 || v2 || v3 || v4 || '').trim();
+    
+    // Log for debugging (safely)
+    console.log("PakuaCV: API Key Detection Check:", {
+      internal: v0 ? "Detected" : "Missing",
+      source1: v1 ? "Detected" : "Missing",
+      source2: v2 ? "Detected" : "Missing",
+      source3: v3 ? "Detected" : "Missing",
+      source4: v4 ? "Detected" : "Missing"
+    });
+
+    if (key && key !== 'undefined' && key !== 'null' && key !== 'MY_GEMINI_API_KEY' && key.length > 10) {
+      return key;
+    }
+    
+    return '';
   } catch (e) {
+    console.error("PakuaCV: Error retrieving API key:", e);
     return '';
   }
 };

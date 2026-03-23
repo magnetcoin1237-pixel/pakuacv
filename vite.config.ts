@@ -5,11 +5,27 @@ import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  
+  // Capture the key from various possible sources during build
+  // We've added PAKUA_AI_KEY as a custom option
+  const apiKey = env.GEMINI_API_KEY || 
+                 env.VITE_GEMINI_API_KEY || 
+                 env.PAKUA_AI_KEY ||
+                 process.env.GEMINI_API_KEY || 
+                 process.env.VITE_GEMINI_API_KEY ||
+                 process.env.PAKUA_AI_KEY ||
+                 process.env.API_KEY || '';
+  
+  console.log('PakuaCV Build: API Key detected:', apiKey ? 'YES' : 'NO');
+
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || ''),
-      'process.env.VITE_GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || ''),
+      '__GEMINI_API_KEY__': JSON.stringify(apiKey),
+      'process.env.GEMINI_API_KEY': JSON.stringify(apiKey),
+      'process.env.VITE_GEMINI_API_KEY': JSON.stringify(apiKey),
+      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(apiKey),
+      'process.env.API_KEY': JSON.stringify(apiKey),
     },
     resolve: {
       alias: {
