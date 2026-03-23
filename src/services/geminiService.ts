@@ -2,7 +2,16 @@ import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { CVData, CoverLetterData, Language } from "../types";
 
 // @ts-ignore
-const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+const getApiKey = () => {
+  try {
+    // @ts-ignore
+    return import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : '');
+  } catch (e) {
+    return '';
+  }
+};
+
+const apiKey = getApiKey();
 
 export const isKeyInvalid = !apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '';
 

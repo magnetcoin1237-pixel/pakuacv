@@ -2,7 +2,6 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { GoogleGenAI } from "@google/genai";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBAtFKmOC6ufo5yWSUXax61rvm8eN4rAWs",
