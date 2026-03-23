@@ -1,30 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, Sparkles, FileText, Zap, CheckCircle2, Wand2, Loader2 } from 'lucide-react';
+import { ArrowRight, Sparkles, FileText, Zap, CheckCircle2 } from 'lucide-react';
 import { ai } from '../lib/firebase';
 
 export default function Home() {
-  const [story, setStory] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const generateMagicStory = async () => {
-    setLoading(true);
-    try {
-      const prompt = "Write a short, 3-sentence story about a magic backpack.";
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-      });
-      setStory(response.text || "No story generated.");
-    } catch (error) {
-      console.error("AI Error:", error);
-      setStory("Failed to generate magic story.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="relative overflow-hidden">
       {/* Hero Section */}
@@ -97,47 +77,6 @@ export default function Home() {
               </div>
             </div>
           </motion.div>
-        </div>
-      </section>
-
-      {/* AI Demo Section */}
-      <section className="py-24 bg-zinc-900 text-white">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-zinc-800 rounded-2xl mb-6">
-            <Wand2 className="text-amber-400" size={32} />
-          </div>
-          <h2 className="text-3xl font-bold mb-4 text-white">Experience the Magic</h2>
-          <p className="text-zinc-400 mb-10 max-w-xl mx-auto">
-            Click the button below to see our AI in action. It will generate a unique story about a magic backpack just for you.
-          </p>
-          
-          <div className="bg-zinc-800/50 border border-zinc-700 p-8 rounded-3xl min-h-[200px] flex flex-col items-center justify-center relative overflow-hidden">
-            {loading ? (
-              <div className="flex flex-col items-center gap-4">
-                <Loader2 className="animate-spin text-amber-400" size={40} />
-                <p className="text-zinc-400 font-medium">Consulting the magic backpack...</p>
-              </div>
-            ) : story ? (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-lg leading-relaxed text-zinc-200 italic"
-              >
-                "{story}"
-              </motion.div>
-            ) : (
-              <p className="text-zinc-500 italic">Your story will appear here...</p>
-            )}
-          </div>
-
-          <button
-            onClick={generateMagicStory}
-            disabled={loading}
-            className="mt-8 px-8 py-4 bg-amber-400 text-zinc-900 rounded-full font-bold hover:bg-amber-300 transition-all flex items-center justify-center gap-2 mx-auto disabled:opacity-50"
-          >
-            {loading ? 'Generating...' : 'Generate Magic Story'}
-            {!loading && <Sparkles size={18} />}
-          </button>
         </div>
       </section>
 
