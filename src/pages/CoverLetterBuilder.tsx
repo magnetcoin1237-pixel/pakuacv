@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Download, RefreshCw, AlertCircle, FileText, User, Mail, Phone, MapPin, Building2, Briefcase, CheckCircle2, Eye, X } from 'lucide-react';
-import { generateCoverLetter, analyzeDocument } from '../services/geminiService';
+import { Sparkles, Download, RefreshCw, AlertCircle, FileText, User, Mail, Phone, MapPin, Building2, Briefcase, CheckCircle2, Eye, X, AlertTriangle } from 'lucide-react';
+import { generateCoverLetter, analyzeDocument, isKeyInvalid } from '../services/geminiService';
 import { CoverLetterData, CVData, Language } from '../types';
 import { jsPDF } from 'jspdf';
 import { toJpeg, toCanvas } from 'html-to-image';
@@ -512,14 +512,19 @@ export default function CoverLetterBuilder() {
 
             <button
               onClick={handleGenerate}
-              disabled={isGenerating || !formData.jobDescription.trim()}
+              disabled={isGenerating || !formData.jobDescription.trim() || isKeyInvalid}
               className={`w-full py-5 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
-                isGenerating || !formData.jobDescription.trim()
+                isGenerating || !formData.jobDescription.trim() || isKeyInvalid
                   ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
                   : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-xl shadow-zinc-200'
               }`}
             >
-              {isGenerating ? (
+              {isKeyInvalid ? (
+                <>
+                  <AlertTriangle size={24} className="text-amber-500" />
+                  AI Features Disabled (Missing API Key)
+                </>
+              ) : isGenerating ? (
                 <>
                   <RefreshCw size={24} className="animate-spin" />
                   Writing your letter...

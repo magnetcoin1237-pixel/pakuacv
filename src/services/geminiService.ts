@@ -1,9 +1,17 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { CVData, CoverLetterData, Language } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// @ts-ignore
+const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+
+export const isKeyInvalid = !apiKey || apiKey === 'undefined' || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '';
+
+const ai = new GoogleGenAI({ apiKey: apiKey || '' });
 
 export async function improveCV(rawInfo: string, jobType: string, language: Language = 'English'): Promise<CVData> {
+  if (isKeyInvalid) {
+    throw new Error("API Key Missing: Please add your GEMINI_API_KEY to environment variables and redeploy.");
+  }
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Transform the following raw career information into a professional, structured CV tailored for a ${jobType} role. 
@@ -92,6 +100,9 @@ export async function generateCoverLetter(
   cvBackground?: string,
   language: Language = 'English'
 ): Promise<CoverLetterData> {
+  if (isKeyInvalid) {
+    throw new Error("API Key Missing: Please add your GEMINI_API_KEY to environment variables and redeploy.");
+  }
   const today = new Date().toLocaleDateString('en-US', { 
     year: 'numeric', 
     month: 'long', 
@@ -156,6 +167,9 @@ export async function analyzeDocument(
   mimeType: string,
   type: 'cv' | 'cover_letter'
 ): Promise<any> {
+  if (isKeyInvalid) {
+    throw new Error("API Key Missing: Please add your GEMINI_API_KEY to environment variables and redeploy.");
+  }
   const prompt = type === 'cv' 
     ? `Extract professional info from this CV. JSON: {fullName, email, phone, location, summary, education: [{school, degree, year}], experience: [{company, role, period, description}], skills: [], certifications: [], referees: [{name, position, organization, contact}]}`
     : `Extract info from this Cover Letter. JSON: {fullName, email, phone, location, date, recipientName, recipientTitle, companyName, companyAddress, subject, content}`;

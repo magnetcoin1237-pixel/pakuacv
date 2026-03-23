@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FileText, FileEdit, BookOpen, Home, Github, Menu, X, LogOut, User as UserIcon, LayoutDashboard } from 'lucide-react';
+import { FileText, FileEdit, BookOpen, Home, Github, Menu, X, LogOut, User as UserIcon, LayoutDashboard, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { isKeyInvalid } from '../services/geminiService';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -18,6 +19,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {isKeyInvalid && (
+        <div className="bg-amber-50 border-b border-amber-200 py-2 px-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-amber-800 text-sm font-medium text-center">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span>
+              Gemini API Key is missing. AI features will not work. 
+              <span className="hidden sm:inline"> Add it to your environment variables to fix this.</span>
+            </span>
+          </div>
+        </div>
+      )}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-zinc-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">

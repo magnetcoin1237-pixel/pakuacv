@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Download, RefreshCw, CheckCircle2, AlertCircle, FileText, User, Mail, Phone, MapPin, Briefcase, Award, Users, Info, Plus, Trash2, Eye, X } from 'lucide-react';
-import { improveCV, analyzeDocument } from '../services/geminiService';
+import { Sparkles, Download, RefreshCw, CheckCircle2, AlertCircle, FileText, User, Mail, Phone, MapPin, Briefcase, Award, Users, Info, Plus, Trash2, Eye, X, AlertTriangle } from 'lucide-react';
+import { improveCV, analyzeDocument, isKeyInvalid } from '../services/geminiService';
 import { CVData, Language } from '../types';
 import { jsPDF } from 'jspdf';
 import { toJpeg, toCanvas } from 'html-to-image';
@@ -771,14 +771,19 @@ export default function CVBuilder() {
 
             <button
               onClick={handleGenerate}
-              disabled={isGenerating || !jobType.trim()}
+              disabled={isGenerating || !jobType.trim() || isKeyInvalid}
               className={`w-full py-5 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${
-                isGenerating || !jobType.trim()
+                isGenerating || !jobType.trim() || isKeyInvalid
                   ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
                   : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-xl shadow-zinc-200'
               }`}
             >
-              {isGenerating ? (
+              {isKeyInvalid ? (
+                <>
+                  <AlertTriangle size={24} className="text-amber-500" />
+                  AI Features Disabled (Missing API Key)
+                </>
+              ) : isGenerating ? (
                 <>
                   <RefreshCw size={24} className="animate-spin" />
                   Tailoring your CV...
