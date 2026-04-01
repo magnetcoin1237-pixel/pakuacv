@@ -40,12 +40,10 @@ async function createServer() {
 // Export the app for Vercel
 export const appPromise = createServer();
 
-// Only listen if this is the main module
-if (process.env.NODE_ENV !== "production") {
-  const PORT = 3000;
-  appPromise.then(app => {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
+// Listen on port 3000 for Cloud Run / Local development
+const PORT = 3000;
+appPromise.then(app => {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
   });
-}
+});
