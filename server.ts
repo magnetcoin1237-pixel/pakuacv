@@ -6,9 +6,8 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function startServer() {
+async function createServer() {
   const app = express();
-  const PORT = 3000;
 
   // API routes FIRST
   app.get("/api/config", (req, res) => {
@@ -35,10 +34,18 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log('Environment variable keys:', Object.keys(process.env).filter(k => k.includes('KEY') || k.includes('GEMINI') || k.includes('VITE')));
-  });
+  return app;
 }
 
-startServer();
+// Export the app for Vercel
+export const appPromise = createServer();
+
+// Only listen if this is the main module
+if (process.env.NODE_ENV !== "production") {
+  const PORT = 3000;
+  appPromise.then(app => {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  });
+}
