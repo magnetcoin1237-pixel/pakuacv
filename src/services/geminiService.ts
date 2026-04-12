@@ -200,11 +200,40 @@ export async function generateCoverLetter(
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Generate a professional cover letter based on the following information.
-    The cover letter MUST be written in ${language}.
-    The cover letter should be persuasive, professional, and tailored to the job description.
+    contents: `You are a professional CV and Cover Letter formatting assistant.
+    Your task is to generate a clean, professional, and ATS-friendly cover letter that MUST fit strictly within ONE PAGE when exported to PDF (A4 size).
     
-    IMPORTANT: Use today's date: ${today}
+    The cover letter MUST be written in ${language}.
+    
+    Follow these strict rules:
+    1. Length:
+    - Maximum 250–300 words
+    - No more than 4 paragraphs
+    
+    2. Formatting:
+    - Use simple structure:
+      [Salutation]
+      [Body Paragraphs]
+      [Closing]
+    
+    3. Spacing:
+    - Keep paragraphs compact (3–5 lines each)
+    
+    4. Style:
+    - Use professional tone
+    - Avoid repetition
+    - Avoid long sentences
+    - Be concise and direct
+    
+    5. Content:
+    - Tailored to the job role
+    - Highlight key skills, experience, and value
+    - End with a strong, confident closing
+    
+    IMPORTANT: 
+    - Use today's date: ${today}
+    - Do NOT exceed one page under any circumstances. If content is too long, intelligently summarize it.
+    - Return clean text for the content field (no markdown, no extra formatting symbols).
     
     Personal Details:
     ${personalInfo}

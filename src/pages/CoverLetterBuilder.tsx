@@ -628,11 +628,11 @@ export default function CoverLetterBuilder() {
                   <div 
                     id="cl-preview-content"
                     ref={clRef}
-                    className="p-12 aspect-[1/1.414] bg-white text-zinc-900 font-serif leading-relaxed"
-                    style={{ fontSize: '13px' }}
+                    className="p-10 aspect-[1/1.414] bg-white text-zinc-900 font-serif leading-relaxed"
+                    style={{ fontSize: '12px' }}
                   >
                     {/* Header */}
-                    <div className="mb-8 pdf-section">
+                    <div className="mb-6 pdf-section">
                       {isEditingResult ? (
                         <div className="space-y-2">
                           <input 
@@ -667,7 +667,7 @@ export default function CoverLetterBuilder() {
                       )}
                     </div>
 
-                    <div className="mb-8 pdf-section">
+                    <div className="mb-6 pdf-section">
                       {isEditingResult ? (
                         <input 
                           className="w-full border-b border-zinc-200 outline-none"
@@ -679,7 +679,7 @@ export default function CoverLetterBuilder() {
                       )}
                     </div>
 
-                    <div className="mb-8 pdf-section">
+                    <div className="mb-6 pdf-section">
                       {isEditingResult ? (
                         <div className="space-y-2">
                           <input 
