@@ -12,6 +12,7 @@ import html2pdf from 'html2pdf.js';
 import { convertOklchToRgb, resolveOklchInString } from '../utils/colorConverter';
 import { extractTextFromPDF, extractTextFromWord, fileToBase64 } from '../utils/fileParser';
 import { optimizeImage } from '../utils/imageOptimizer';
+import { createMongikePayment } from '../services/paymentService';
 import { Upload, FileUp, Save } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
@@ -193,6 +194,28 @@ export default function CVBuilder() {
     if (!jobType.trim()) {
       setError('Please provide a target job type.');
       return;
+    }
+
+    // Check if user has paid (simulated with localStorage for this demo)
+    const hasPaid = localStorage.getItem('pakua_paid') === 'true';
+    if (!hasPaid) {
+      const phone = formData.personalDetails.phone || window.prompt('Please enter your mobile money phone number:');
+      if (!phone) {
+        setError('Phone number is required for mobile payment.');
+        return;
+      }
+
+      if (window.confirm(`AI generation requires a small one-time payment of 320 TZS via Mongike. Proceed with phone: ${phone}?`)) {
+        try {
+          await createMongikePayment(phone, formData.personalDetails.email);
+          return;
+        } catch (err: any) {
+          setError(`Payment error: ${err.message}`);
+          return;
+        }
+      } else {
+        return;
+      }
     }
 
     // Convert structured data to a string for the AI to process

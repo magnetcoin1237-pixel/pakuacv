@@ -8,6 +8,8 @@ import CoverLetterBuilder from './pages/CoverLetterBuilder';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentCancel from './pages/PaymentCancel';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -59,6 +61,8 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route path="/payment-success" element={<PaymentSuccess />} />
+      <Route path="/payment-cancel" element={<PaymentCancel />} />
     </Routes>
   );
 }
